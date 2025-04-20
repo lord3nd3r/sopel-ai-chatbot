@@ -20,7 +20,7 @@ def setup(bot):
     if not bot.config.chat.api_key:
         raise config.ConfigurationError('OpenAI API key is required in [chat] section.')
     bot.memory['openai_client'] = openai.OpenAI(api_key=bot.config.chat.api_key)
-    bot.memory['message_history'] = {}
+    bot.memory['message_history'] = {}  # Clear any existing history
     logger.info("AI-OpenAI plugin setup complete.")
 
 def send_response(bot, channel, text, max_length=450, delay=1.0):
@@ -52,7 +52,7 @@ def handle_message(bot, trigger):
     # Log the incoming message for debugging
     logger.debug(f"Received message in {channel} from {nick}: {text}")
 
- # Respond if the message starts with the bot's nickname followed by a space
+    # Respond if the message starts with the bot's nickname followed by a space
     if not text.lower().startswith(bot.nick.lower() + ' '):
         logger.debug(f"Message ignored: does not start with '{bot.nick.lower()} '")
         return
@@ -64,10 +64,11 @@ def handle_message(bot, trigger):
 
     # Prepare messages with system prompt and history
     system_prompt = bot.config.chat.system_prompt.format(nick=bot.nick) if bot.config.chat.system_prompt else ''
+    system_prompt += ' Do not include your name or any prefix in your responses.'  # Explicit instruction
     messages = [{'role': 'system', 'content': system_prompt}] if system_prompt else []
     for sender, msg in bot.memory['message_history'][channel]:
         role = 'assistant' if sender == bot.nick else 'user'
-        messages.append({'role': role, 'content': f'{sender}: {msg}'})
+        messages.append({'role': role, 'content': msg})  # Use raw message content without sender prefix
 
     try:
         logger.debug(f"Sending OpenAI request with model {bot.config.chat.model}")
